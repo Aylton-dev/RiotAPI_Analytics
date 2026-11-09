@@ -1,0 +1,27 @@
+# Ambiente Virtual 
+venv/
+.venv/
+env/
+
+# Banco de dados local 
+*.db
+*.sqlite3
+
+
+.env
+.env.*
+riot_api_key.txt
+
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Arquivos temporários do VS Code e do Sistema Operacional
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
