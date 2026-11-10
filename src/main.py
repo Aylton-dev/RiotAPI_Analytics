@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from src.repository.database import getDb, engine
 from src.model import models
+from src.scripts import get_match_data
 
 models.Base.metadata.create_all(bind=engine)
 
