@@ -1,6 +1,9 @@
 import os
+import json
+from pathlib import Path
 import httpx
 from dotenv import load_dotenv
+import asyncio
 
 load_dotenv() 
 
@@ -12,9 +15,23 @@ HEADERS = {
 
 KINDRED_CHAMPION_ID = 203
 
-async def get_match_data(match_id: str):
+def load_item_map() -> dict[int, str]:
+    
+    file_path = Path("data/item.json")
+
+    with open(file_path, "r", encoding="utf-8") as file:
+        items_data = json.load(file)["data"]
+    
+    item_map = {}
+    for item_id_str, details in items_data.items():
+        item_map[int(item_id_str)] = details["name"]
+
+    return item_map
+
+async def get_match_data(match_id: str, item_map: dict[int, str]):
 
     url = f"https://americas.api.riotgames.com/lol/match/v5/matches/{match_id}"
+    await asyncio.sleep(0.2)
 
     async with httpx.AsyncClient() as client:
         response = await client.get(url, headers=HEADERS)
@@ -42,18 +59,24 @@ async def get_match_data(match_id: str):
                 else:
                     enemy_jungle_player = participant["championName"]
         if kindred_player is not None:
-            matches_data = {
+            raw_items = [
+                kindred_player["item0"], kindred_player["item1"], kindred_player["item2"],
+                kindred_player["item3"], kindred_player["item4"], kindred_player["item5"]
+            ]
+
+            translated_items = [
+                item_map.get(item_id, f"Desconhecido({item_id})")
+                for item_id in raw_items if item_id != 0
+            ]
+
+            return {
                 "match_id": match_id,
                 "duration": duration,
                 "kindred_win": kindred_player["win"],
-                "kindred_items": [
-                kindred_player["item0"], kindred_player["item1"], kindred_player["item2"],
-                kindred_player["item3"], kindred_player["item4"], kindred_player["item5"]
-            ],
-                "enemy_jungle_champion": enemy_jungle_player
+                "kindred_items": translated_items,
+                "enemy_jungle_player": enemy_jungle_player
             }
-            return matches_data
-
+        
         return None
 
 async def get_match_ids_by_puuid(puuid: str, count: int = 20) -> list[str]:
