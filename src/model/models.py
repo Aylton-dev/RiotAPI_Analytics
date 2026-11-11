@@ -14,5 +14,5 @@ class ItemPartida(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     match_id = Column(String, ForeignKey('matches.match_id'))
-    item_name = Column(Integer)
+    item_name = Column(String)
     buy_order = Column(Integer) 
