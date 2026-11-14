@@ -2,7 +2,8 @@ from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from src.repository.database import getDb, engine
 from src.model import models
-from src.scripts import get_match_data
+from src.scripts.riotApi import get_match_data
+from src.repository.analyzeItems import analyze_item_winrate
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -15,4 +16,4 @@ def status():
 @app.get("/analytics/winrate")
 def get_item_winrate(db: Session = Depends(getDb)):
 
-    return {"message": "Rota de analytics que será implementada futuramente"}
+    return analyze_item_winrate()
