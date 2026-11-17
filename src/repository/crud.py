@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from src.model.models import Match, ItemPartida
+from src.model.models import Match, ItemPartida, RunaPartida
 
 def save_matches(db: Session, matches_list: list[dict]):
     new_matches = 0
@@ -20,12 +20,15 @@ def save_matches(db: Session, matches_list: list[dict]):
 
         
         for index, item_name in enumerate(match_data["kindred_items"], start=1):
-            new_item = ItemPartida(
+            db.add(ItemPartida(match_id=match_data["match_id"], item_name=item_name, buy_order=index))
+
+        for rune_data in match_data.get("kindred_runes", []):
+            db.add(RunaPartida(
                 match_id=match_data["match_id"],
-                item_name=item_name,
-                buy_order=index
-            )
-            db.add(new_item)
+                perk_name=rune_data["perk_name"],
+                category=rune_data["category"],
+                style_id=rune_data["style_id"]
+            ))
 
         new_matches += 1
     

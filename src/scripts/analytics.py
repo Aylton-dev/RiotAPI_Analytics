@@ -1,5 +1,5 @@
 import asyncio
-from src.scripts.riotApi import get_match_ids_by_puuid, get_match_data, load_item_map
+from src.scripts.riotApi import get_match_ids_by_puuid, get_match_data, load_item_map, load_rune_map
 from src.repository.database import SessionLocal, engine
 from src.repository.crud import save_matches
 from src.model import models
@@ -9,8 +9,9 @@ models.Base.metadata.create_all(bind=engine)
 async def match_farmer(puuid:str):
 
     item_map = load_item_map()
+    rune_map, style_map = load_rune_map()
 
-    matches_ids = await get_match_ids_by_puuid(puuid, count=20)
+    matches_ids = await get_match_ids_by_puuid(puuid, count=50)
 
     if not matches_ids:
         print(f"Não foi possível obter partidas para o PUUID {puuid}.")
@@ -20,7 +21,7 @@ async def match_farmer(puuid:str):
 
     async def fetch_with_semaphore(match_id: str):
         async with semaforo:
-            return await get_match_data(match_id, item_map)
+            return await get_match_data(match_id, item_map, rune_map, style_map)
 
     tasks = [fetch_with_semaphore(match_id) for match_id in matches_ids]
 
