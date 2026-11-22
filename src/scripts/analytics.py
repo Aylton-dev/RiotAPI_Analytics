@@ -40,7 +40,7 @@ async def match_farmer(puuid:str):
 
 if __name__ == "__main__":
     
-    TEST_PUUID = "xQSyfeLVGfQiLbLQNc8ygiTpLLYLjpxWq6vEC_H2j2mDY52bkip55Go83nSUjmK0VHM9eDBastpa2w"
+    TEST_PUUID = "fwMNQKccBtPsPCaQp4Pn9LVBl-sV0qPKvayyqOHXTQovgp88-vq2rsUdMxQfzMOmAicdqpDydcdY5A"
     
     print("Iniciando o teste de captura de dados...")
     dados_finais = asyncio.run(match_farmer(TEST_PUUID))

@@ -1,13 +1,25 @@
 from sqlalchemy.orm import Session
 from src.model.models import Match, ItemPartida, RunaPartida
+from pathlib import Path
+import os
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+DATABASE_URL = f"sqlite:///{BASE_DIR / 'RiotAPI_Analytics.db'}"
 
 def save_matches(db: Session, matches_list: list[dict]):
+
+    url = db.get_bind().url
+    print(f"Banco em uso: {os.path.abspath(url.database) if url.database else url}")
+    print(f"Partidas recebidas para salvar: {len(matches_list)}")
+    puladas = 0
     new_matches = 0
 
     for match_data in matches_list:
         
         existing_match = db.query(Match).filter(Match.match_id == match_data["match_id"]).first()
         if existing_match:
+            print(f"{match_data['match_id']} já está no banco, pulando")
+            puladas += 1
             continue
 
         new_match = Match(

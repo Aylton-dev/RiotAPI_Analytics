@@ -72,7 +72,7 @@ async def get_match_data(match_id: str, item_map: dict[int, str], rune_map: dict
         duration = match_json["info"]["gameDuration"]
 
         if duration < 240:
-            print("partida descartada por ser muito curta")
+            print(f"Partida {match_id} descartada: duração = {duration}")
             return None
 
         participants = match_json["info"]["participants"]
@@ -143,7 +143,7 @@ async def get_match_data(match_id: str, item_map: dict[int, str], rune_map: dict
         
         return None
 
-async def get_match_ids_by_puuid(puuid: str, count: int = 20) -> list[str]:
+async def get_match_ids_by_puuid(puuid: str, count: int = 50) -> list[str]:
 
     url = f"https://americas.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
 

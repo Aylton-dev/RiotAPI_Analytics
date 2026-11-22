@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kindred Analytics Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <div class="container">
+        <header class="header-kindred">
+            <img src="/static/kindred-fundo.gif" alt="Kindred Art" class="kindred-avatar" onerror="this.style.display='none'">
+            <div>
+                <h1>Kindred Analytics</h1>
+            </div>
+        </header>
+
+        <div class="nav-buttons">
+            <button class="tab-btn" onclick="mudarAba('runas', this)">Winrate das Runas</button>
+            <button class="tab-btn active" onclick="mudarAba('itens', this)">Winrate de Itens</button>
+            <button class="tab-btn" onclick="mudarAba('matchups', this)">Matchups</button>
+        </div>
+
+        <div class="card glass-panel">
+            <h2 id="panel-title">Winrate dos Itens</h2>
+
+                <div id="items-container" class="items-grid"></div>
+                <div id="runes-container" style="display:none"></div>
+                <div id="matchups-container" class="matchups-grid" style="display:none"></div>
+        </div>
+    </div>
+
+    <script src="/static/perksAndMatchups.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>
