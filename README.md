@@ -372,3 +372,4 @@ RiotAPI_Analytics/
 - Análises com poucas partidas podem ser inconclusivas.
 - O confronto é apenas uma referência exploratória e não determina sozinho o nível de dificuldade do matchup.
 - Chaves da Riot podem expirar conforme as regras da plataforma.
+- Acesse o link https://developer.riotgames.com/apis para ter acesso aos endpoints e conseguir o PUUID
