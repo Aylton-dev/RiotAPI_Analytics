@@ -97,12 +97,6 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Se o Windows bloquear a ativação do ambiente virtual:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
-```
 
 Inicie a API e o dashboard:
 
