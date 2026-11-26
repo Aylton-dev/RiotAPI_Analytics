@@ -372,4 +372,3 @@ RiotAPI_Analytics/
 - Análises com poucas partidas podem ser inconclusivas.
 - O confronto é apenas uma referência exploratória e não determina sozinho o nível de dificuldade do matchup.
 - Chaves da Riot podem expirar conforme as regras da plataforma.
-- Não compartilhe o `.env`, chaves da Riot ou credenciais do Gemini.
