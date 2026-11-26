@@ -3,13 +3,12 @@ import os
 import re
 from pathlib import Path
 from typing import Any
-
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
-
 from src.repository.analyzeWinrate import analyze_perk_winrate
+from src.ia.ai_analytic import DatasetAnomalyReport
 
 load_dotenv()
 
@@ -151,6 +150,110 @@ class PerkAIService:
             "long_desc": catalog_meta.get("long_desc") or "Não informada",
             "stats_summary": summary,
         }
+
+    def _build_compact_perks_snapshot(
+        self, rows: list[dict[str, Any]], max_perks: int = 40
+    ) -> dict[str, Any]:
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for r in rows or []:
+            name = (r.get("perk_name") or "").strip()
+            if not name:
+                continue
+            matches = int(r.get("total_matches") or 0)
+            wr = float(r.get("win_rate") or 0.0)
+            grouped.setdefault(name, []).append(
+                {
+                    "category": r.get("category"),
+                    "style_name": r.get("style_id"),
+                    "matches": matches,
+                    "wins": int(r.get("wins") or 0),
+                    "wr": wr,
+                }
+            )
+
+        ranked_names = sorted(
+            grouped.keys(),
+            key=lambda n: sum(entry["matches"] for entry in grouped[n]),
+            reverse=True,
+        )[:max_perks]
+
+        resumo_runas = {}
+        for name in ranked_names:
+            entries = grouped[name]
+            total_matches = sum(e["matches"] for e in entries)
+            total_wins = sum(e["wins"] for e in entries)
+            overall_wr = round((total_wins / total_matches) * 100, 2) if total_matches > 0 else 0.0
+            resumo_runas[name] = {
+                "total_partidas": total_matches,
+                "win_rate_geral": overall_wr,
+                "detalhes": entries,
+            }
+
+        catalog_meta = {
+            meta["name"]: {
+                "style_name": meta.get("style_name"),
+                "tipo_catalogo": "keystone" if meta.get("slot_index") == 0 else "runa_menor",
+            }
+            for meta in self.catalog._by_name.values()
+        }
+
+        return {
+            "catalogo_runas": catalog_meta,
+            "estatisticas_por_runa": resumo_runas,
+        }
+
+    def find_anomalies_with_ai(self) -> DatasetAnomalyReport:
+        if not self.api_key or not self._client:
+            raise PerkAIProviderError("Variável de ambiente GEMINI_API_KEY não configurada.")
+
+        all_rows = analyze_perk_winrate()
+        if not isinstance(all_rows, list):
+            all_rows = list(all_rows)
+
+        snapshot = self._build_compact_perks_snapshot(all_rows)
+        prompt = f"""
+Você é um analista de dados de League of Legends focado em Kindred Jungle.
+Avalie o resumo estatístico e o catálogo de runas abaixo e aponte apenas anomalias ou inconsistências relevantes:
+winrate muito alto ou muito baixo em relação ao restante ou ao volume de partidas, ou runas com dados inconsistentes frente ao catálogo.
+Significado das categorias em "detalhes":
+- "keystone": runa escolhida no espaço de runa principal.
+- "primary_runes": runa menor escolhida na árvore primária.
+- "secondary_runes": runa menor escolhida na árvore secundária.
+
+Regras para a resposta:
+- Considere "total_partidas" e "win_rate_geral" antes de concluir que uma runa tem poucas partidas ou erro de dados.
+- Só aponte anomalia quando houver desvio real relevante ou amostra pequena no contexto geral da runa; se uma fatia tiver poucas partidas em uma runa com alto volume geral, deixe claro que é apenas uma fatia isolada e não o total da runa.
+- "tipo_catalogo" descreve se a runa é uma keystone ou uma runa menor. Runas menores podem aparecer tanto em "primary_runes" quanto em "secondary_runes"; isso não é inconsistência.
+- Não infira incompatibilidade entre árvore primária/secundária e a posição interna da runa no catálogo. Essa posição interna não é fornecida e runas menores do catálogo podem ser usadas em ambas as árvores.
+- Só indique incompatibilidade de posição se uma runa catalogada como "keystone" aparecer em uma categoria de runa menor, ou se uma "runa_menor" aparecer como "keystone". Compare "style_name" com o estilo do catálogo antes de apontar divergência.
+- Use terminologia oficial de League of Legends em português ("marcas", "selva", "Aronguejos").
+- Seja objetivo e direto.
+
+Dados:
+{json.dumps(snapshot, ensure_ascii=False)}
+""".strip()
+
+        try:
+            response = self._client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=DatasetAnomalyReport,
+                    max_output_tokens=2000,
+                    temperature=0.2,
+                ),
+            )
+        except Exception as exc:
+            raise PerkAIProviderError(f"Falha ao consultar o provedor de IA: {exc}") from exc
+
+        if not response.text:
+            raise PerkAIProviderError("O provedor de IA retornou uma resposta vazia.")
+
+        try:
+            return DatasetAnomalyReport.model_validate_json(response.text)
+        except Exception as exc:
+            raise PerkAIProviderError(f"Falha ao interpretar a resposta da IA: {exc}") from exc
 
     def build_prompt(
         self,

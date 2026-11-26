@@ -81,6 +81,13 @@ def analyze_perk_endpoint(payload: PerkAnalysisRequest) -> PerkAnalysisResponse:
             detail=str(exc),
         ) from exc
 
+@app.get("/ai/perks/anomalies", response_model=DatasetAnomalyReport)
+def find_anomalies_endpoint() -> DatasetAnomalyReport:
+    try:
+        return ai_perk_service.find_anomalies_with_ai()
+    except PerkAIProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
 @app.post("/ai/matchups/analysis", response_model=MatchupAnalysisResponse)
 def analyze_matchup_endpoint(payload: MatchupAnalysisRequest) -> MatchupAnalysisResponse:
     try:
@@ -95,3 +102,10 @@ def analyze_matchup_endpoint(payload: MatchupAnalysisRequest) -> MatchupAnalysis
             status_code=502,
             detail=str(exc),
         ) from exc
+
+@app.get("/ai/matchup/anomalies", response_model=DatasetAnomalyReport)
+def find_anomalies_endpoint() -> DatasetAnomalyReport:
+    try:
+        return ai_matchup_service.find_anomalies_with_ai()
+    except MatchupAIProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

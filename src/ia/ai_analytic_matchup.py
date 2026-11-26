@@ -8,10 +8,14 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 from src.repository.analyzeWinrate import analyze_matchup_winrate
+from src.ia.ai_analytic import DatasetAnomalyReport
 
 load_dotenv()
 
 MIN_MATCHES_THRESHOLD = 15
+MIN_MATCHES_FOR_LOW_VOLUME_SIGNAL = 4
+LOW_WIN_RATE_SIGNAL_THRESHOLD = 25.0
+HIGH_WIN_RATE_SIGNAL_THRESHOLD = 75.0
 
 class MatchupAnalysisRequest(BaseModel):
     enemy_champion: str = Field(..., min_length=1, max_length=120)
@@ -149,6 +153,133 @@ class MatchupAIService:
             "title": catalog_meta.get("title", "") if catalog_meta else "",
             "stats_summary": summary,
         }
+
+    def _build_compact_matchups_snapshot(
+        self, rows: list[dict[str, Any]], max_matchups: int = 40
+    ) -> list[dict[str, Any]]:
+        grouped: dict[str, dict[str, Any]] = {}
+        for r in rows or []:
+            enemy = (
+                r.get("enemy_jungler")
+                or r.get("enemy_champion")
+                or r.get("champion_name")
+                or ""
+            ).strip()
+            if not enemy:
+                continue
+
+            cat_info = self.catalog.find_champion(enemy)
+            official_name = cat_info["name"] if cat_info else enemy
+            key = _normalize_key(official_name)
+            entry = grouped.setdefault(
+                key,
+                {"enemy_jungler": official_name, "total_partidas": 0, "vitorias": 0},
+            )
+            entry["total_partidas"] += int(r.get("total_matches") or 0)
+            entry["vitorias"] += int(r.get("wins") or 0)
+
+        snapshot = []
+        for entry in grouped.values():
+            matches = entry["total_partidas"]
+            wins = entry["vitorias"]
+            snapshot.append(
+                {
+                    **entry,
+                    "win_rate": round((wins / matches) * 100, 2) if matches else 0.0,
+                    "volume_suficiente": matches >= MIN_MATCHES_THRESHOLD,
+                }
+            )
+
+        snapshot.sort(key=lambda item: item["total_partidas"], reverse=True)
+        return snapshot[:max_matchups]
+
+    def find_anomalies_with_ai(self) -> DatasetAnomalyReport:
+        if not self.api_key or not self._client:
+            raise MatchupAIProviderError("Variável de ambiente GEMINI_API_KEY não configurada.")
+
+        all_rows = analyze_matchup_winrate()
+        if not isinstance(all_rows, list):
+            all_rows = list(all_rows)
+
+        snapshot = self._build_compact_matchups_snapshot(all_rows)
+        eligible_matchups = {
+            _normalize_key(row["enemy_jungler"])
+            for row in snapshot
+            if row["volume_suficiente"]
+        }
+        low_volume_signals = [
+            row
+            for row in snapshot
+            if not row["volume_suficiente"]
+            and row["total_partidas"] >= MIN_MATCHES_FOR_LOW_VOLUME_SIGNAL
+            and (
+                row["win_rate"] <= LOW_WIN_RATE_SIGNAL_THRESHOLD
+                or row["win_rate"] >= HIGH_WIN_RATE_SIGNAL_THRESHOLD
+            )
+        ]
+        low_volume_anomalies = [
+            {
+                "item_name": row["enemy_jungler"],
+                "tipo_anomalia": "Win rate extremo com amostra reduzida",
+                "motivo": (
+                    f"Win rate observado de {row['win_rate']:.2f}% "
+                    f"({row['vitorias']} vitórias em {row['total_partidas']} partidas). "
+                    f"A amostra está abaixo de {MIN_MATCHES_THRESHOLD} partidas; "
+                    "o sinal é inconclusivo e não confirma a dificuldade real do matchup."
+                ),
+            }
+            for row in low_volume_signals
+        ]
+        if not eligible_matchups:
+            return DatasetAnomalyReport(anomalias=low_volume_anomalies)
+
+        eligible_snapshot = [
+            row for row in snapshot if row["volume_suficiente"]
+        ]
+
+        prompt = f"""
+Você é um analista de dados de League of Legends focado em Kindred Jungle.
+Avalie as estatísticas dos matchups abaixo e aponte apenas desvios estatísticos claros no win rate.
+
+Regras para a resposta:
+- Os dados enviados já contêm apenas registros com pelo menos {MIN_MATCHES_THRESHOLD} partidas.
+- Não infira dificuldade do confronto, classes, habilidades, estratégias ou causas de jogo; esses dados não estão disponíveis neste resumo.
+- Em "motivo", justifique somente com os números fornecidos: win rate, vitórias e total de partidas. Não invente causas.
+- Use "item_name" para retornar o nome do campeão exatamente como aparece em "enemy_jungler".
+- Seja objetivo e direto.
+
+Dados:
+{json.dumps(eligible_snapshot, ensure_ascii=False)}
+""".strip()
+
+        try:
+            response = self._client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=DatasetAnomalyReport,
+                    max_output_tokens=2000,
+                    temperature=0.2,
+                ),
+            )
+        except Exception as exc:
+            raise MatchupAIProviderError(f"Falha ao consultar o provedor de IA: {exc}") from exc
+
+        if not response.text:
+            raise MatchupAIProviderError("O provedor de IA retornou uma resposta vazia.")
+
+        try:
+            report = DatasetAnomalyReport.model_validate_json(response.text)
+            return DatasetAnomalyReport(
+                anomalias=low_volume_anomalies + [
+                    anomaly
+                    for anomaly in report.anomalias
+                    if _normalize_key(anomaly.item_name) in eligible_matchups
+                ]
+            )
+        except Exception as exc:
+            raise MatchupAIProviderError(f"Falha ao interpretar a resposta da IA: {exc}") from exc
 
     def build_prompt(
         self,
