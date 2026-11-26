@@ -31,7 +31,7 @@ class MatchupAnalysisResponse(BaseModel):
 class InvalidMatchupError(ValueError):
     pass
 
-class AIProviderError(RuntimeError):
+class MatchupAIProviderError(RuntimeError):
     pass
 
 def _strip_html(text: str) -> str:
@@ -207,7 +207,7 @@ Regras para a resposta:
             return self._cache[cache_key]
 
         if not self.api_key or not self._client:
-            raise AIProviderError("Variável de ambiente GEMINI_API_KEY não configurada.")
+            raise MatchupAIProviderError("Variável de ambiente GEMINI_API_KEY não configurada.")
 
         prompt = self.build_prompt(req, ctx)
 
@@ -223,17 +223,17 @@ Regras para a resposta:
                 ),
             )
         except Exception as exc:
-            raise AIProviderError(f"Falha ao consultar o provedor de IA: {exc}") from exc
+            raise MatchupAIProviderError(f"Falha ao consultar o provedor de IA: {exc}") from exc
 
         if not response.text:
-            raise AIProviderError("O provedor de IA retornou uma resposta vazia.")
+            raise MatchupAIProviderError("O provedor de IA retornou uma resposta vazia.")
 
         try:
             parsed = MatchupAnalysisResponse.model_validate_json(response.text)
             parsed.enemy_champion = ctx["enemy_champion"]
             parsed.champion_id = ctx["champion_id"]
         except Exception as exc:
-            raise AIProviderError(f"Falha ao interpretar a resposta da IA: {exc}") from exc
+            raise MatchupAIProviderError(f"Falha ao interpretar a resposta da IA: {exc}") from exc
 
         self._cache[cache_key] = parsed
         return parsed

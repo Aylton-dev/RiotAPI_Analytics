@@ -3,8 +3,8 @@ async function carregarDados(tipo) {
 
     try {
         const [responseApi, responseJsonRiot] = await Promise.all([
-            fetch('http://127.0.0.1:8000/analytics/winrate/items'),
-            fetch('http://127.0.0.1:8000/data/item.json')
+            fetch('/analytics/winrate/items'),
+            fetch('/data/item.json')
         ]);
 
         const dataApi = await responseApi.json();
@@ -13,17 +13,19 @@ async function carregarDados(tipo) {
         const version = riotJson.version;
         const baseImg = `https://ddragon.leagueoflegends.com/cdn/${version}/img/item`;
 
-        
         const mapaImagens = {};
         for (const info of Object.values(riotJson.data)) {
             if (info.maps && info.maps["11"] === false) continue;
             if (info.gold && info.gold.purchasable === false) continue;
             if (!mapaImagens[info.name]) {
-                mapaImagens[info.name] = info.image.full; // ex: "3033.png"
+                mapaImagens[info.name] = info.image.full;
             }
         }
 
         const container = document.getElementById('items-container');
+        if (!container) return;
+
+        configurarEventosItens();
 
         if (dataApi.length === 0) {
             container.innerHTML = '<p style="color: #94a3b8; text-align: center; grid-column: 1/-1;">Nenhum dado encontrado.</p>';
@@ -37,8 +39,20 @@ async function carregarDados(tipo) {
 
             return `
                 <div class="item-card">
-                    <img src="${imgUrl}" alt="${nomeItem}" class="item-img" loading="lazy"
-                         onerror="this.onerror=null; this.style.visibility='hidden';">
+                    <button
+                        type="button"
+                        class="icon-trigger"
+                        data-item-name="${nomeItem}"
+                        aria-label="Analisar item ${nomeItem} com IA"
+                    >
+                        <img
+                            src="${imgUrl}"
+                            alt="${nomeItem}"
+                            class="item-img"
+                            loading="lazy"
+                            onerror="this.onerror=null; this.style.visibility='hidden';"
+                        >
+                    </button>
                     <div class="item-info">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span class="item-name">${nomeItem}</span>
@@ -58,10 +72,36 @@ async function carregarDados(tipo) {
     }
 }
 
+function configurarEventosItens() {
+    const container = document.getElementById('items-container');
+    if (!container || container.dataset.aiBound === 'true') return;
+    container.dataset.aiBound = 'true';
+
+    container.addEventListener('click', (event) => {
+        const btn = event.target.closest('.icon-trigger[data-item-name]');
+        if (!btn || typeof window.abrirAnaliseIA !== 'function') return;
+
+        const itemName = btn.getAttribute('data-item-name');
+        if (!itemName) return;
+
+        window.abrirAnaliseIA({
+            endpoint: '/ai/items/analysis',
+            payload: {
+                item_name: itemName,
+                champion: 'Kindred',
+                role: 'Jungle',
+            },
+            titulo: itemName,
+            subtitulo: 'Análise de Item • Kindred Jungle',
+            triggerEl: btn,
+        });
+    });
+}
+
 function avisoScriptFaltando(containerId) {
     const el = document.getElementById(containerId);
     if (el) {
-        el.innerHTML = '<p style="color:#f87171">Não foi possível carregar o runesMatchups.js. ' +
+        el.innerHTML = '<p style="color:#f87171">Não foi possível carregar o matchupAndPerks.js. ' +
                        'Verifique o caminho do &lt;script&gt; no index.html.</p>';
     }
 }
@@ -95,7 +135,7 @@ const TITULOS = {
 };
 
 const abasCarregadas = new Set();
-let abaAtual = null;              
+let abaAtual = null;
 
 function resolverAba(nome) {
     const n = String(nome).trim().toLowerCase();
@@ -124,7 +164,6 @@ function mudarAba(nome) {
         return;
     }
 
-    
     if (bloco) bloco.style.display = '';
     abaAtual = escolhida;
 

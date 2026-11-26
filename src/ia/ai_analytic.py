@@ -41,7 +41,7 @@ class DatasetAnomalyReport(BaseModel):
 class InvalidItemError(ValueError):
     pass
 
-class AIProviderError(RuntimeError):
+class ItemAIProviderError(RuntimeError):
     pass
 
 def _strip_html(text: str) -> str:
@@ -266,15 +266,15 @@ Dados:
                 ),
             )
         except Exception as exc:
-            raise AIProviderError(f"Falha ao consultar o provedor de IA: {exc}") from exc
+            raise ItemAIProviderError(f"Falha ao consultar o provedor de IA: {exc}") from exc
 
         if not response.text:
-            raise AIProviderError("O provedor de IA retornou uma resposta vazia.")
+            raise ItemAIProviderError("O provedor de IA retornou uma resposta vazia.")
 
         try:
             return DatasetAnomalyReport.model_validate_json(response.text)
         except Exception as exc:
-            raise AIProviderError(f"Falha ao interpretar a resposta da IA: {exc}") from exc
+            raise ItemAIProviderError(f"Falha ao interpretar a resposta da IA: {exc}") from exc
 
     def buildPrompt(
         self,
@@ -347,7 +347,7 @@ Regras para a análise (seja objetivo, direto e fiel apenas aos dados fornecidos
             return self._cache[cache_key]
 
         if not self.api_key or not self._client:
-            raise AIProviderError("Variável de ambiente GEMINI_API_KEY não configurada.")
+            raise ItemAIProviderError("Variável de ambiente GEMINI_API_KEY não configurada.")
 
         prompt = self.buildPrompt(req, item_meta, order_summary, alternatives_pool)
 
@@ -363,17 +363,17 @@ Regras para a análise (seja objetivo, direto e fiel apenas aos dados fornecidos
                 ),
             )
         except Exception as exc:
-            raise AIProviderError(f"Falha ao consultar o provedor de IA: {exc}") from exc
+            raise ItemAIProviderError(f"Falha ao consultar o provedor de IA: {exc}") from exc
 
         if not response.text:
-            raise AIProviderError("O provedor de IA retornou uma resposta vazia.")
+            raise ItemAIProviderError("O provedor de IA retornou uma resposta vazia.")
 
         try:
             parsed = ItemAnalysisResponse.model_validate_json(response.text)
             parsed.item_name = item_meta["name"]
             parsed.item_id = item_meta["item_id"]
         except Exception as exc:
-            raise AIProviderError(f"Falha ao interpretar a resposta da IA: {exc}") from exc
+            raise ItemAIProviderError(f"Falha ao interpretar a resposta da IA: {exc}") from exc
 
         self._cache[cache_key] = parsed
         return parsed

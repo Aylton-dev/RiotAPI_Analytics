@@ -38,7 +38,7 @@ class InvalidPerkError(ValueError):
     pass
 
 
-class AIProviderError(RuntimeError):
+class PerkAIProviderError(RuntimeError):
     pass
 
 
@@ -210,7 +210,7 @@ Regras para a resposta:
             return self._cache[cache_key]
 
         if not self.api_key or not self._client:
-            raise AIProviderError("Variável de ambiente GEMINI_API_KEY não configurada.")
+            raise PerkAIProviderError("Variável de ambiente GEMINI_API_KEY não configurada.")
 
         prompt = self.build_prompt(req, perk_ctx)
 
@@ -226,10 +226,10 @@ Regras para a resposta:
                 ),
             )
         except Exception as exc:
-            raise AIProviderError(f"Falha ao consultar o provedor de IA: {exc}") from exc
+            raise PerkAIProviderError(f"Falha ao consultar o provedor de IA: {exc}") from exc
 
         if not response.text:
-            raise AIProviderError("O provedor de IA retornou uma resposta vazia.")
+            raise PerkAIProviderError("O provedor de IA retornou uma resposta vazia.")
 
         try:
             parsed = PerkAnalysisResponse.model_validate_json(response.text)
@@ -238,7 +238,7 @@ Regras para a resposta:
             parsed.category = perk_ctx["category"]
             parsed.style_id = perk_ctx["style_id"]
         except Exception as exc:
-            raise AIProviderError(f"Falha ao interpretar a resposta da IA: {exc}") from exc
+            raise PerkAIProviderError(f"Falha ao interpretar a resposta da IA: {exc}") from exc
 
         self._cache[cache_key] = parsed
         return parsed

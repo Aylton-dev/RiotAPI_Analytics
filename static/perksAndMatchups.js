@@ -1,60 +1,146 @@
-const API_BASE = "http://127.0.0.1:8000";
-
 const ENDPOINTS = {
-    runes: `${API_BASE}/analytics/winrate/perks`,
-    matchups: `${API_BASE}/analytics/winrate/matchups`,
-    runesJson: `${API_BASE}/data/runesReforged.json`,
+    runes: "/analytics/winrate/perks",
+    matchups: "/analytics/winrate/matchups",
+    runesJson: "/data/runesReforged.json",
+    aiPerks: "/ai/perks/analysis",
+    aiMatchups: "/ai/matchups/analysis",
 };
-
 const DDRAGON = "https://ddragon.leagueoflegends.com";
-
 const CATEGORY_LABELS = {
     keystone: "Runa Principal",
     primary_runes: "Runas Primárias",
     secondary_runes: "Runas Secundárias",
 };
+const IMG_ERROR = "this.onerror=null; this.style.visibility='hidden';";
 
 async function fetchJson(url) {
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`Erro ${response.status} em ${url}`);
+    if (!response.ok) {
+        throw new Error(`Erro HTTP ${response.status} ao carregar ${url}`);
+    }
     return response.json();
 }
 
-let versionCache = null;
+let ddragonVersionCache = null;
+
 async function getDdragonVersion() {
-    if (versionCache) return versionCache;
+    if (ddragonVersionCache) return ddragonVersionCache;
+
     const versions = await fetchJson(`${DDRAGON}/api/versions.json`);
-    versionCache = versions[0]; // a primeira é a mais recente
-    return versionCache;
+    if (!Array.isArray(versions) || !versions[0]) {
+        throw new Error("Não foi possível obter a versão do Data Dragon.");
+    }
+
+    ddragonVersionCache = versions[0];
+    return ddragonVersionCache;
 }
 
 function formatWinrate(value) {
-    return `${Number(value).toFixed(1)}% WR`;
+    const number = Number(value);
+    return `${(Number.isFinite(number) ? number : 0).toFixed(1)}% WR`;
 }
 
-const IMG_ERROR = `this.onerror=null; this.style.visibility='hidden';`;
-
 function buildRuneIconMap(runesJson) {
+    const styles = Array.isArray(runesJson) ? runesJson : runesJson?.data || [];
     const map = {};
-    for (const style of runesJson) {
-        for (const slot of style.slots) {
-            for (const rune of slot.runes) {
+
+    for (const style of styles) {
+        for (const slot of style.slots || []) {
+            for (const rune of slot.runes || []) {
                 map[rune.name] = rune.icon;
             }
         }
     }
+
     return map;
 }
 
+function groupByCategory(runes) {
+    return runes.reduce((groups, rune) => {
+        (groups[rune.category] ||= []).push(rune);
+        return groups;
+    }, {});
+}
+
 function getRuneIconUrl(iconPath) {
-    return iconPath ? `${DDRAGON}/cdn/img/${iconPath}` : "";
+    return iconPath
+        ? `${DDRAGON}/cdn/img/${iconPath.replace(/^\/+/, "")}`
+        : "";
+}
+
+function getChampionIconUrl(version, championId) {
+    return `${DDRAGON}/cdn/${version}/img/champion/${encodeURIComponent(championId)}.png`;
+}
+
+function mostrarErro(container, contexto, error) {
+    const mensagem = document.createElement("p");
+    mensagem.className = "error-msg";
+    mensagem.textContent = `${contexto}: ${error.message || error}`;
+    container.replaceChildren(mensagem);
+}
+
+function configurarEventosRunas(container) {
+    if (!container || container.dataset.aiBound === "true") return;
+    container.dataset.aiBound = "true";
+
+    container.addEventListener("click", (event) => {
+        const btn = event.target.closest(".icon-trigger[data-perk-name]");
+        if (!btn || typeof window.abrirAnaliseIA !== "function") return;
+
+        const perkName = btn.getAttribute("data-perk-name");
+        if (!perkName) return;
+
+        window.abrirAnaliseIA({
+            endpoint: ENDPOINTS.aiPerks,
+            payload: {
+                perk_name: perkName,
+                champion: "Kindred",
+                role: "Jungle",
+            },
+            titulo: perkName,
+            subtitulo: "Análise de Runa • Kindred Jungle",
+            triggerEl: btn,
+        });
+    });
+}
+
+function configurarEventosMatchups(container) {
+    if (!container || container.dataset.aiBound === "true") return;
+    container.dataset.aiBound = "true";
+
+    container.addEventListener("click", (event) => {
+        const btn = event.target.closest(".icon-trigger[data-enemy-champion]");
+        if (!btn || typeof window.abrirAnaliseIA !== "function") return;
+
+        const enemyChampion = btn.getAttribute("data-enemy-champion");
+        if (!enemyChampion) return;
+
+        window.abrirAnaliseIA({
+            endpoint: ENDPOINTS.aiMatchups,
+            payload: {
+                enemy_champion: enemyChampion,
+                champion: "Kindred",
+                role: "Jungle",
+            },
+            titulo: `vs. ${enemyChampion}`,
+            subtitulo: "Análise de Matchup • Kindred Jungle",
+            triggerEl: btn,
+        });
+    });
 }
 
 function renderRuneCard(rune, iconMap) {
     const imgUrl = getRuneIconUrl(iconMap[rune.perk_name]);
     return `
         <div class="item-card rune-card">
-            <img src="${imgUrl}" alt="${rune.perk_name}" class="item-img" loading="lazy" onerror="${IMG_ERROR}">
+            <button
+                type="button"
+                class="icon-trigger"
+                data-perk-name="${rune.perk_name}"
+                aria-label="Analisar runa ${rune.perk_name} com IA"
+            >
+                <img src="${imgUrl}" alt="${rune.perk_name}" class="item-img" loading="lazy" onerror="${IMG_ERROR}">
+            </button>
             <div class="item-info">
                 <span class="item-name">${rune.perk_name}</span>
                 <div class="item-stats">
@@ -66,17 +152,10 @@ function renderRuneCard(rune, iconMap) {
     `;
 }
 
-function groupByCategory(runes) {
-    const groups = {};
-    for (const rune of runes) {
-        (groups[rune.category] ||= []).push(rune);
-    }
-    return groups;
-}
-
 async function carregarRunas(containerId = "runes-container") {
     const container = document.getElementById(containerId);
     if (!container) return;
+    configurarEventosRunas(container);
 
     try {
         const [runes, runesJson] = await Promise.all([
@@ -103,16 +182,19 @@ async function carregarRunas(containerId = "runes-container") {
     }
 }
 
-function getChampionIconUrl(version, championId) {
-    return `${DDRAGON}/cdn/${version}/img/champion/${championId}.png`;
-}
-
 function renderMatchupCard(matchup, version) {
     const imgUrl = getChampionIconUrl(version, matchup.enemy_jungler);
     const tooltip = `${matchup.enemy_jungler} - ${matchup.total_matches} partida(s)`;
     return `
         <div class="matchup-card" title="${tooltip}">
-            <img src="${imgUrl}" alt="${matchup.enemy_jungler}" class="matchup-img" loading="lazy" onerror="${IMG_ERROR}">
+            <button
+                type="button"
+                class="icon-trigger"
+                data-enemy-champion="${matchup.enemy_jungler}"
+                aria-label="Analisar matchup contra ${matchup.enemy_jungler} com IA"
+            >
+                <img src="${imgUrl}" alt="${matchup.enemy_jungler}" class="matchup-img" loading="lazy" onerror="${IMG_ERROR}">
+            </button>
             <span class="item-winrate">${formatWinrate(matchup.win_rate)}</span>
         </div>
     `;
@@ -121,6 +203,7 @@ function renderMatchupCard(matchup, version) {
 async function carregarMatchups(containerId = "matchups-container") {
     const container = document.getElementById(containerId);
     if (!container) return;
+    configurarEventosMatchups(container);
 
     try {
         const [matchups, version] = await Promise.all([

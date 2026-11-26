@@ -5,9 +5,9 @@ from src.model import models
 from src.scripts.riotApi import get_match_data
 from src.repository.analyzeWinrate import analyze_item_winrate, analyze_perk_winrate, analyze_matchup_winrate
 from fastapi.staticfiles import StaticFiles
-from src.ia.ai_analytic_perks import PerkAnalysisRequest, PerkAnalysisResponse, AIProviderError, InvalidPerkError, PerkAIService
-from src.ia.ai_analytic import AIProviderError, InvalidItemError, ItemAIService, ItemAnalysisRequest, ItemAnalysisResponse, DatasetAnomalyReport
-from src.ia.ai_analytic_matchup import MatchupAIService, MatchupAnalysisRequest, MatchupAnalysisResponse, InvalidMatchupError, AIProviderError as MatchupAIProviderError
+from src.ia.ai_analytic_perks import PerkAnalysisRequest, PerkAnalysisResponse, PerkAIProviderError, InvalidPerkError, PerkAIService
+from src.ia.ai_analytic import ItemAIProviderError, InvalidItemError, ItemAIService, ItemAnalysisRequest, ItemAnalysisResponse, DatasetAnomalyReport
+from src.ia.ai_analytic_matchup import MatchupAIService, MatchupAnalysisRequest, MatchupAnalysisResponse, InvalidMatchupError, MatchupAIProviderError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -53,7 +53,7 @@ def analyze_item_endpoint(payload: ItemAnalysisRequest) -> ItemAnalysisResponse:
             status_code=404,
             detail=str(exc),
         ) from exc
-    except AIProviderError as exc:
+    except ItemAIProviderError as exc:
         raise HTTPException(
             status_code=502,
             detail=str(exc),
@@ -63,19 +63,19 @@ def analyze_item_endpoint(payload: ItemAnalysisRequest) -> ItemAnalysisResponse:
 def find_anomalies_endpoint() -> DatasetAnomalyReport:
     try:
         return ai_service.find_anomalies_with_ai()
-    except AIProviderError as exc:
+    except ItemAIProviderError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 @app.post("/ai/perks/analysis", response_model=PerkAnalysisResponse)
 def analyze_perk_endpoint(payload: PerkAnalysisRequest) -> PerkAnalysisResponse:
     try:
         return ai_perk_service.analyze_perk(payload)
-    except InvalidItemError as exc:
+    except InvalidPerkError as exc:
         raise HTTPException(
             status_code=404,
             detail=str(exc),
         ) from exc
-    except AIProviderError as exc:
+    except PerkAIProviderError as exc:
         raise HTTPException(
             status_code=502,
             detail=str(exc),
@@ -90,7 +90,7 @@ def analyze_matchup_endpoint(payload: MatchupAnalysisRequest) -> MatchupAnalysis
             status_code=404,
             detail=str(exc),
         ) from exc
-    except (AIProviderError, MatchupAIProviderError) as exc:
+    except (MatchupAIProviderError) as exc:
         raise HTTPException(
             status_code=502,
             detail=str(exc),

@@ -31,7 +31,32 @@
         </div>
     </div>
 
+    <dialog id="ai-detail-modal" class="ai-modal" aria-labelledby="ai-modal-title">
+        <div class="ai-modal-box">
+            <header class="ai-modal-header">
+                <div>
+                    <h2 id="ai-modal-title" class="ai-modal-title">Análise com IA</h2>
+                    <p id="ai-modal-subtitle" class="ai-modal-subtitle"></p>
+                </div>
+                <button type="button" id="ai-modal-close" class="ai-modal-close"
+                aria-label="Fechar janela">&times;</button>
+            </header>
+
+        <div id="ai-modal-loading" class="ai-modal-state" hidden>
+            <span class="ai-spinner" aria-hidden="true"></span>
+                <p>Consultando análise da IA...</p>
+        </div>
+        <div id="ai-modal-error" class="ai-modal-state ai-modal-error"
+            role="alert" hidden></div>
+        <div id="ai-modal-empty" class="ai-modal-state" hidden>
+            <p>Nenhum detalhe disponível para este registro.</p>
+        </div>
+            <div id="ai-modal-content" class="ai-modal-content" hidden></div>
+        </div>
+    </dialog>
+
     <script src="/static/perksAndMatchups.js"></script>
     <script src="/static/script.js"></script>
+    <script src="/static/detail-modal.js"></script>
 </body>
 </html>
