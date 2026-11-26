@@ -1,0 +1,16 @@
+.git
+.github
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env
+.env.*
+*.db
+*.sqlite
+*.sqlite3
+.pytest_cache/
+.mypy_cache/
+node_modules/

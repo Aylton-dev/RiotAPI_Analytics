@@ -9,7 +9,7 @@ env/
 
 
 .env
-.env.*
+.env
 riot_api_key.txt
 
 

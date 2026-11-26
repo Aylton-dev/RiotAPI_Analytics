@@ -1,80 +1,110 @@
 # Riot API Analytics
 
-Aplicação Python para coletar partidas de **Kindred na selva**, armazenar os dados localmente em SQLite e consultar estatísticas em um dashboard e em uma API REST.
+Projeto de análise de dados competitivos de **Kindred Jungle** utilizando a API da Riot Games. A aplicação coleta partidas recentes, salva os dados em SQLite e apresenta estatísticas de itens, runas e confrontos em um dashboard web. Também oferece análises textuais com Google Gemini.
 
-A coleta usa a Riot Match-V5 API. O projeto agrega win rate por item e ordem de compra, runa e jungler adversário. O dashboard é servido pelo FastAPI; análises adicionais de itens, runas e matchups usam o Gemini.
+<p align="center">
+  <img src="./static/kindred-fundo.gif" alt="Demonstração visual do dashboard" width="720">
+</p>
+
+## Visão geral
+
+O projeto reúne três etapas principais:
+
+1. coleta as partidas rankeadas Solo/Duo de uma conta pela Riot Match-V5 API;
+2. filtra partidas válidas de Kindred na selva e salva itens, runas e o jungler adversário;
+3. calcula win rates e disponibiliza os resultados em uma API REST e em um dashboard responsivo.
+
+As informações exibidas são calculadas a partir do banco local. Elas não são atualizadas automaticamente em tempo real.
 
 ## Funcionalidades
 
-- Coleta de partidas ranqueadas solo/duo a partir de um PUUID.
-- Filtro para partidas de pelo menos 240 segundos em que Kindred jogou na selva.
-- Armazenamento de partidas, itens, runas e jungler adversário em SQLite; partidas já armazenadas são ignoradas.
-- Estatísticas de win rate por item/ordem de compra, runa e matchup.
-- Dashboard web com abas de itens, runas e matchups.
-- Análises por IA de item, runa e matchup, além de endpoints de anomalias.
+- Coleta das 50 partidas rankeadas mais recentes de um PUUID.
+- Filtro de partidas com duração mínima de 240 segundos.
+- Identificação de partidas em que Kindred atuou na posição Jungle.
+- Persistência local em SQLite.
+- Evita duplicar partidas já armazenadas.
+- Win rate por item e ordem de compra.
+- Win rate por runa, categoria e estilo.
+- Win rate por matchup contra cada jungler adversário.
+- Dashboard web com abas para itens, runas e confrontos.
+- Análise de itens, runas e matchups por Google Gemini.
+- Documentação interativa da API com Swagger UI.
+- Execução local com Python ou em contêiner Docker.
 
-## Fluxo dos dados
+## Tecnologias utilizadas
 
-1. `src/scripts/analytics.py` inicia a coleta usando o PUUID configurado em `TEST_PUUID`.
-2. `src/scripts/riotApi.py` consulta os IDs de partidas na Riot Match-V5 API e busca os detalhes das partidas.
-3. O coletor filtra partidas e converte IDs de itens/runas em nomes usando os arquivos JSON em `data/`.
-4. `src/repository/crud.py` grava as partidas, itens e runas no SQLite por meio dos modelos SQLAlchemy em `src/model/models.py`.
-5. `src/repository/analyzeWinrate.py` usa Pandas e consultas SQL para gerar as estatísticas consumidas pela API e pelo dashboard.
-6. `src/main.py` expõe as rotas FastAPI, serve os arquivos de `static/` e conecta os endpoints de análise ao Gemini.
-
-## Tecnologias
-
-- Python 3.10+
-- FastAPI e Uvicorn
-- SQLAlchemy, SQLite e Pandas
-- HTTPX e python-dotenv
-- Google Gen AI SDK
-- HTML, CSS e JavaScript
+| Área | Tecnologias |
+|---|---|
+| Backend | Python 3.10+, FastAPI, Uvicorn |
+| Banco de dados | SQLite, SQLAlchemy |
+| Dados | Pandas |
+| Integrações | Riot Match-V5 API, HTTPX, Google Gen AI SDK |
+| Configuração | python-dotenv |
+| Interface | HTML5, CSS3, JavaScript |
+| Implantação | Docker e Docker Compose |
 
 ## Pré-requisitos
 
+### Execução local
+
 - Python 3.10 ou superior.
-- Uma chave de desenvolvedor da Riot Games API para coletar partidas.
-- O PUUID da conta a ser consultada.
-- Uma chave Gemini (`GEMINI_API_KEY`) para usar as rotas de análise por IA.
+- Uma chave da Riot Games Developer API.
+- O PUUID da conta que será consultada.
+- Uma chave Google Gemini para os recursos de IA.
 
-## Instalação no Windows
+### Execução com Docker
 
-Execute os comandos na raiz do repositório, onde ficam `requirements.txt` e as pastas `src/`, `data/` e `static/`:
+- Docker Desktop.
+- Docker Compose.
+- Arquivo `.env` configurado na raiz do projeto.
+
+## Configuração
+
+Crie o arquivo `.env` a partir do modelo:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Preencha as variáveis:
+
+```dotenv
+DATABASE_URL=sqlite:///./RiotAPI_Analytics.db
+RIOT_API_KEY=sua_chave_da_riot
+GEMINI_API_KEY=sua_chave_gemini
+GEMINI_MODEL=gemini-3.5-flash-lite
+RIOT_PUUID=seu_puuid
+```
+
+| Variável | Obrigatória | Descrição |
+|---|---:|---|
+| `RIOT_API_KEY` | Para coleta | Chave da Riot Match-V5 API. |
+| `RIOT_PUUID` | Para coleta | PUUID da conta utilizada na busca das partidas. |
+| `GEMINI_API_KEY` | Para IA | Chave usada pelas análises e pelos endpoints de anomalias. |
+| `GEMINI_MODEL` | Não | Modelo Gemini. O padrão no código é `gemini-3.5-flash-lite`. |
+| `DATABASE_URL` | Não | URL SQLAlchemy do banco. O padrão é o SQLite local do projeto. |
+
+Não publique ou compartilhe as chaves. O arquivo `.env` não deve ser versionado.
+
+## Instalação e execução local
+
+Na raiz do repositório, execute:
 
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python --version
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Confirme que a versão exibida é Python 3.10 ou superior.
-
-Se o PowerShell bloquear a ativação do ambiente virtual, permita scripts somente na sessão atual e tente novamente:
+Se o Windows bloquear a ativação do ambiente virtual:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\Activate.ps1
 ```
 
-Crie `.env` na raiz do projeto:
-
-```dotenv
-RIOT_API_KEY=sua_chave_da_riot
-GEMINI_API_KEY=sua_chave_gemini
-GEMINI_MODEL=gemini-3.5-flash-lite
-DATABASE_URL=sqlite:///./RiotAPI_Analytics.db
-```
-
-`RIOT_API_KEY` é necessária para coletar partidas. `GEMINI_API_KEY` é necessária para as rotas de IA; ela não é necessária para iniciar a API ou consultar estatísticas já armazenadas. `GEMINI_MODEL` e `DATABASE_URL` são opcionais e têm valores padrão no código.
-
-Não publique nem compartilhe chaves. `.env` já está listado no `.gitignore`.
-
-## Executar a API e o dashboard
-
-Com o ambiente virtual ativado, inicie o servidor na raiz do projeto:
+Inicie a API e o dashboard:
 
 ```powershell
 python -m uvicorn src.main:app --reload
@@ -82,56 +112,105 @@ python -m uvicorn src.main:app --reload
 
 Endereços locais:
 
-- API: http://127.0.0.1:8000
 - Dashboard: http://127.0.0.1:8000/static/index.html
-- Documentação interativa da API: http://127.0.0.1:8000/docs
+- API: http://127.0.0.1:8000/
+- Swagger: http://127.0.0.1:8000/docs
 
-Verifique se a API iniciou:
+Verifique o status da API:
 
 ```powershell
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/"
 ```
 
-O dashboard exibe win rate de itens por ordem de compra, runas por categoria e matchups contra junglers adversários. Os botões de análise nas visualizações chamam os endpoints Gemini correspondentes.
+Resposta esperada:
 
-## Coletar partidas
+```json
+{
+  "status": "API is running",
+  "project": "Riot API Analytics"
+}
+```
 
-1. Abra `src/scripts/analytics.py` e substitua o valor de `TEST_PUUID` pelo PUUID da conta desejada.
-2. Confirme que `RIOT_API_KEY` está configurada no `.env`.
-3. Na raiz do projeto, com o ambiente virtual ativado, execute:
+## Coleta de partidas
+
+Com a chave Riot configurada e o PUUID definido em `RIOT_PUUID`, execute o coletor em outro terminal:
 
 ```powershell
 python -m src.scripts.analytics
 ```
 
-Cada execução solicita até 50 partidas da fila ranqueada solo/duo (`queueId=420`) pela rota regional `americas`. Os detalhes são consultados com até cinco requisições simultâneas. Partidas com menos de 240 segundos e partidas sem Kindred na selva são descartadas. Partidas já existentes no banco não são inseridas novamente.
+O processo:
 
-O coletor usa os catálogos locais `data/item.json` e `data/runesReforged.json` para traduzir itens e runas. O processo não roda continuamente nem pagina para além das 50 partidas mais recentes: execute-o novamente para atualizar os dados depois que novas partidas estiverem disponíveis.
+1. consulta até 50 partidas da fila Solo/Duo (`queueId=420`);
+2. baixa os dados pela região `americas`;
+3. descarta partidas com menos de 240 segundos;
+4. descarta partidas sem Kindred na posição Jungle;
+5. converte IDs de itens e runas pelos catálogos locais em `data/`;
+6. salva os dados novos no SQLite.
 
-## Endpoints da API
+As partidas já presentes no banco são ignoradas. Execute o coletor novamente quando quiser incorporar partidas recentes novas.
 
-### Estatísticas e catálogos
+## Execução com Docker
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `GET` | `/` | Verifica se a API está ativa. |
-| `GET` | `/analytics/winrate/items` | Win rate por item e ordem de compra. |
-| `GET` | `/analytics/winrate/perks` | Win rate por runa, categoria e estilo. |
-| `GET` | `/analytics/winrate/matchups` | Win rate contra cada jungler adversário. |
-| `GET` | `/data/item.json` | Catálogo local de itens. |
-| `GET` | `/data/champion.json` | Catálogo local de campeões. |
-| `GET` | `/data/runesReforged.json` | Catálogo local de runas. |
-| `GET` | `/static/index.html` | Dashboard web. |
+Crie o `.env` e execute na raiz do projeto:
 
-Exemplos de consulta no PowerShell:
+```powershell
+docker compose up --build
+```
+
+Para executar em segundo plano:
+
+```powershell
+docker compose up --build -d
+```
+
+O Compose publica o serviço em http://127.0.0.1:8000 e persiste o banco em um volume Docker chamado `riotapi_data`.
+
+Para visualizar os contêineres:
+
+```powershell
+docker compose ps
+```
+
+Para encerrar o serviço:
+
+```powershell
+docker compose down
+```
+
+Para encerrar o serviço e remover também o volume do banco:
+
+```powershell
+docker compose down -v
+```
+
+Para executar a coleta de partidas dentro do contêiner:
+
+```powershell
+docker compose run --rm api python -m src.scripts.analytics
+```
+
+## Dashboard
+
+Acesse http://127.0.0.1:8000/static/index.html.
+
+O dashboard possui três visualizações:
+
+- **Itens:** win rate por item e ordem de compra.
+- **Runas:** win rate por runa, categoria e estilo.
+- **Matchups:** win rate e desempenho contra cada jungler adversário.
+
+Os cartões podem abrir uma análise detalhada. A análise depende de `GEMINI_API_KEY`.
+
+## Exemplos de uso da API
+
+### Estatísticas de itens
 
 ```powershell
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/analytics/winrate/items"
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/analytics/winrate/perks"
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/analytics/winrate/matchups"
 ```
 
-Exemplo de resposta de estatística:
+Exemplo de resposta:
 
 ```json
 [
@@ -145,23 +224,22 @@ Exemplo de resposta de estatística:
 ]
 ```
 
-### Análises com IA
-
-| Método | Rota | Campo obrigatório | Descrição |
-|---|---|---|---|
-| `POST` | `/ai/items/analysis` | `item_name` | Analisa um item. |
-| `POST` | `/ai/perks/analysis` | `perk_name` | Analisa uma runa. |
-| `POST` | `/ai/matchups/analysis` | `enemy_champion` | Analisa um matchup. |
-| `GET` | `/ai/anomalies` | — | Detecta possíveis anomalias nas estatísticas de itens. |
-| `GET` | `/ai/perks/anomalies` | — | Detecta possíveis anomalias nas estatísticas de runas. |
-| `GET` | `/ai/matchup/anomalies` | — | Detecta sinais estatísticos nos matchups. |
-
-Os campos `champion`, `role` e `patch` são opcionais nas requisições `POST`; os valores padrão são `Kindred`, `Jungle` e `26.23.1`.
-
-Exemplos executáveis no PowerShell:
+### Estatísticas de runas
 
 ```powershell
-$itemBody = @{
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/analytics/winrate/perks"
+```
+
+### Estatísticas de matchups
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/analytics/winrate/matchups"
+```
+
+### Análise de item
+
+```powershell
+$body = @{
     item_name = "Glaive Sombria"
     champion = "Kindred"
     role = "Jungle"
@@ -172,11 +250,13 @@ Invoke-RestMethod `
     -Method Post `
     -Uri "http://127.0.0.1:8000/ai/items/analysis" `
     -ContentType "application/json" `
-    -Body $itemBody
+    -Body $body
 ```
 
+### Análise de runa
+
 ```powershell
-$perkBody = @{
+$body = @{
     perk_name = "Pressione o Ataque"
 } | ConvertTo-Json
 
@@ -184,11 +264,13 @@ Invoke-RestMethod `
     -Method Post `
     -Uri "http://127.0.0.1:8000/ai/perks/analysis" `
     -ContentType "application/json" `
-    -Body $perkBody
+    -Body $body
 ```
 
+### Análise de matchup
+
 ```powershell
-$matchupBody = @{
+$body = @{
     enemy_champion = "LeeSin"
 } | ConvertTo-Json
 
@@ -196,75 +278,104 @@ Invoke-RestMethod `
     -Method Post `
     -Uri "http://127.0.0.1:8000/ai/matchups/analysis" `
     -ContentType "application/json" `
-    -Body $matchupBody
+    -Body $body
 ```
 
-Para consultar anomalias, por exemplo:
+### Detecção de anomalias
 
 ```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/ai/anomalies"
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/ai/perks/anomalies"
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/ai/matchup/anomalies"
 ```
 
-O formato dos relatórios de anomalia é:
+## Endpoints
 
-```json
-{
-  "anomalias": [
-    {
-      "item_name": "Kayn",
-      "tipo_anomalia": "Win rate extremo com amostra reduzida",
-      "motivo": "Win rate observado de 25.00% (3 vitórias em 12 partidas). A amostra está abaixo de 15 partidas; o sinal é inconclusivo."
-    }
-  ]
-}
-```
-
-As rotas de IA precisam de `GEMINI_API_KEY`. Campeões, itens ou runas não encontrados podem retornar `404`; falhas de configuração ou do provedor de IA retornam `502`. Quando não há dados ou sinais que atendam aos critérios, uma rota de estatísticas/anomalias pode retornar uma lista vazia.
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/` | Status da aplicação. |
+| `GET` | `/analytics/winrate/items` | Win rate por item e ordem de compra. |
+| `GET` | `/analytics/winrate/perks` | Win rate por runa. |
+| `GET` | `/analytics/winrate/matchups` | Win rate contra junglers adversários. |
+| `POST` | `/ai/items/analysis` | Analisa um item. |
+| `POST` | `/ai/perks/analysis` | Analisa uma runa. |
+| `POST` | `/ai/matchups/analysis` | Analisa um matchup. |
+| `GET` | `/ai/anomalies` | Pesquisa anomalias em itens. |
+| `GET` | `/ai/perks/anomalies` | Pesquisa anomalias em runas. |
+| `GET` | `/ai/matchup/anomalies` | Pesquisa sinais em matchups. |
+| `GET` | `/static/index.html` | Dashboard web. |
+| `GET` | `/docs` | Documentação Swagger. |
 
 ## Banco de dados
 
-O banco padrão é `RiotAPI_Analytics.db`, no diretório de execução, e as tabelas são criadas automaticamente pela aplicação ou pelo coletor. Para usar outro banco, defina `DATABASE_URL` no `.env`.
+O banco padrão é `RiotAPI_Analytics.db`. Ele é criado automaticamente na inicialização da aplicação.
 
 | Tabela | Conteúdo |
 |---|---|
 | `matches` | ID, duração, vitória de Kindred e jungler adversário. |
-| `item_partida` | Itens da partida e ordem de compra. |
-| `runa_partida` | Runas, categoria e estilo usados na partida. |
+| `item_partida` | Itens de cada partida e ordem de compra. |
+| `runa_partida` | Runas, categoria e estilo de cada partida. |
 
-O banco SQLite local é ignorado pelo Git.
+Para usar outro banco SQLite ou PostgreSQL compatível com SQLAlchemy, altere `DATABASE_URL` no `.env`.
+
+## Fluxo dos dados
+
+```text
+Riot API
+   |
+   v
+src/scripts/riotApi.py
+   |
+   v
+src/scripts/analytics.py
+   |
+   v
+src/repository/crud.py -> SQLite
+   |
+   v
+src/repository/analyzeWinrate.py
+   |
+   +---------------------------+
+   v                           v
+FastAPI REST               Dashboard web
+   |
+   v
+Google Gemini
+```
 
 ## Estrutura do projeto
 
 ```text
-.
+RiotAPI_Analytics/
 ├── data/
-│   ├── champion.json             # Catálogo local de campeões
-│   ├── item.json                 # Catálogo local de itens
-│   └── runesReforged.json        # Catálogo local de runas
+│   ├── champion.json
+│   ├── item.json
+│   └── runesReforged.json
 ├── src/
-│   ├── main.py                   # Aplicação FastAPI e rotas
 │   ├── ia/
-│   │   ├── ai_analytic.py        # Análise e anomalias de itens
-│   │   ├── ai_analytic_matchup.py # Análise e anomalias de matchups
-│   │   └── ai_analytic_perks.py  # Análise e anomalias de runas
 │   ├── model/
-│   │   └── models.py             # Modelos SQLAlchemy
 │   ├── repository/
-│   │   ├── analyzeWinrate.py     # Agregações estatísticas
-│   │   ├── crud.py               # Persistência das partidas
-│   │   └── database.py           # Engine e sessões SQLAlchemy
-│   └── scripts/
-│       ├── analytics.py          # Entrada do coletor
-│       └── riotApi.py            # Requisições Riot e tradução dos dados
-├── static/                       # Dashboard HTML, CSS e JavaScript
+│   ├── scripts/
+│   └── main.py
+├── static/
+│   ├── index.html
+│   ├── style.css
+│   ├── script.js
+│   ├── perksAndMatchups.js
+│   ├── detail-modal.js
+│   └── kindred-fundo.gif
+├── .env.example
+├── compose.yaml
+├── Dockerfile
 ├── requirements.txt
 └── README.md
 ```
 
 ## Observações
 
-- As estatísticas são agregações históricas do banco local, não dados ao vivo.
-- A análise de itens considera a ordem de compra registrada.
-- Runas `stat_shard` são excluídas das estatísticas de win rate de runas.
-- O alerta de matchup com baixa amostra é exploratório: exige pelo menos quatro partidas e win rate de até 25% ou a partir de 75%; não confirma, por si só, a dificuldade do confronto.
-- Mantenha as chaves da Riot e do Gemini privadas. Chaves de desenvolvedor da Riot podem expirar conforme as regras da plataforma.
+- Stat shards não são incluídos nas estatísticas de runas.
+- Os resultados dependem da quantidade de partidas armazenadas no banco.
+- Análises com poucas partidas podem ser inconclusivas.
+- O confronto é apenas uma referência exploratória e não determina sozinho o nível de dificuldade do matchup.
+- Chaves da Riot podem expirar conforme as regras da plataforma.
+- Não compartilhe o `.env`, chaves da Riot ou credenciais do Gemini.

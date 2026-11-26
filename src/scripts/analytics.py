@@ -1,10 +1,13 @@
 import asyncio
+import os
 from src.scripts.riotApi import get_match_ids_by_puuid, get_match_data, load_item_map, load_rune_map
 from src.repository.database import SessionLocal, engine
 from src.repository.crud import save_matches
 from src.model import models
+from dotenv import load_dotenv
 
 models.Base.metadata.create_all(bind=engine)
+load_dotenv()
 
 async def match_farmer(puuid:str):
 
@@ -39,9 +42,13 @@ async def match_farmer(puuid:str):
         print("Nenhuma partida válida de Kindred encontrada neste lote.")
 
 if __name__ == "__main__":
-    
-    TEST_PUUID = "fwMNQKccBtPsPCaQp4Pn9LVBl-sV0qPKvayyqOHXTQovgp88-vq2rsUdMxQfzMOmAicdqpDydcdY5A"
+    PUUID = os.getenv("RIOT_PUUID")
+
+    if not PUUID:
+        raise SystemExit(
+            "RIOT_PUUID nao configurado. Defina RIOT_PUUID no arquivo .env."
+        )
     
     print("Iniciando o teste de captura de dados...")
-    dados_finais = asyncio.run(match_farmer(TEST_PUUID))
+    dados_finais = asyncio.run(match_farmer(PUUID))
     print(dados_finais)
