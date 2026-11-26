@@ -373,3 +373,4 @@ RiotAPI_Analytics/
 - O confronto é apenas uma referência exploratória e não determina sozinho o nível de dificuldade do matchup.
 - Chaves da Riot podem expirar conforme as regras da plataforma.
 - Acesse o link https://developer.riotgames.com/apis para ter acesso aos endpoints e conseguir o PUUID
+- Este projeto não é endossado pela Riot Games e não reflete as opiniões da Riot Games.
