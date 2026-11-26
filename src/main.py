@@ -7,6 +7,7 @@ from src.repository.analyzeWinrate import analyze_item_winrate, analyze_perk_win
 from fastapi.staticfiles import StaticFiles
 from src.ia.ai_analytic_perks import PerkAnalysisRequest, PerkAnalysisResponse, AIProviderError, InvalidPerkError, PerkAIService
 from src.ia.ai_analytic import AIProviderError, InvalidItemError, ItemAIService, ItemAnalysisRequest, ItemAnalysisResponse, DatasetAnomalyReport
+from src.ia.ai_analytic_matchup import MatchupAIService, MatchupAnalysisRequest, MatchupAnalysisResponse, InvalidMatchupError, AIProviderError as MatchupAIProviderError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,6 +17,7 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Riot API Analytics")
 ai_service = ItemAIService()
 ai_perk_service = PerkAIService()
+ai_matchup_service = MatchupAIService()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -74,6 +76,21 @@ def analyze_perk_endpoint(payload: PerkAnalysisRequest) -> PerkAnalysisResponse:
             detail=str(exc),
         ) from exc
     except AIProviderError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc),
+        ) from exc
+
+@app.post("/ai/matchups/analysis", response_model=MatchupAnalysisResponse)
+def analyze_matchup_endpoint(payload: MatchupAnalysisRequest) -> MatchupAnalysisResponse:
+    try:
+        return ai_matchup_service.analyze_matchup(payload)
+    except InvalidMatchupError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+    except (AIProviderError, MatchupAIProviderError) as exc:
         raise HTTPException(
             status_code=502,
             detail=str(exc),
